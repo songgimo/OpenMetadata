@@ -1,0 +1,44 @@
+{
+  "name": "columnCustomStatisticToMeetCriteria",
+  "fullyQualifiedName": "columnCustomStatisticToMeetCriteria",
+  "displayName": "Column Custom Statistic To Meet Criteria",
+  "description": "This schema defines the test ColumnCustomStatisticToMeetCriteria. Test the specific custom statistic of a column to meet a given criteria based on an operator and threshold.",
+  "entityType": "COLUMN",
+  "testPlatforms": ["OpenMetadata"],
+  "supportedDataTypes": ["NUMBER", "INT", "FLOAT", "DOUBLE", "DECIMAL", "TINYINT", "SMALLINT", "BIGINT"],
+  "parameterDefinition": [
+    {
+      "name": "statisticType",
+      "displayName": "Statistic Type",
+      "description": "The type of statistic to calculate (e.g., MAX, MIN, MEAN, MEDIAN, STDDEV, NULL_COUNT).",
+      "dataType": "STRING",
+      "required": true
+    },
+    {
+      "name": "operator",
+      "displayName": "Operator",
+      "description": "The comparison operator (e.g., GREATER_THAN, LESS_THAN, EQUALS, GREATER_THAN_OR_EQUALS, LESS_THAN_OR_EQUALS, BETWEEN).",
+      "dataType": "STRING",
+      "required": true
+    },
+    {
+      "name": "threshold1",
+      "displayName": "Threshold 1",
+      "description": "The main threshold value to compare the statistic against. In case of BETWEEN operator, this is the lower bound.",
+      "dataType": "DOUBLE",
+      "required": true
+    },
+    {
+      "name": "threshold2",
+      "displayName": "Threshold 2",
+      "description": "The upper bound threshold value. Only required if the operator is BETWEEN.",
+      "dataType": "DOUBLE",
+      "required": false
+    }
+  ],
+  "supportsRowLevelPassedFailed": false,
+  "provider": "system",
+  "enabled": true,
+  "dataQualityDimension": "Accuracy",
+  "validatorClass": "ColumnCustomStatisticToMeetCriteriaValidator"
+}
