@@ -71,7 +71,7 @@
     "sampleDataCount": {
       "description": "Number of sample rows to ingest when 'Generate Sample Data' is enabled",
       "type": "integer",
-      "default": 50,
+      "default": 0,
       "title": "Sample Data Rows Count"
     },
     "classificationLanguage": {
