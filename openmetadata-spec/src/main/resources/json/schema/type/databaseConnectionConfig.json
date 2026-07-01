@@ -39,7 +39,7 @@
     "generateSampleData": {
       "description": "Turn on/off collecting sample data.",
       "type": "boolean",
-      "default": true
+      "default": false
     },
     "sampleDataQuery": {
       "description": "query to generate sample data.",

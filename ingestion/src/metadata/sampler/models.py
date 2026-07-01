@@ -47,7 +47,7 @@ class BaseProfileConfig(ConfigModel):
     profileSample: Optional[Union[float, int]] = None  # noqa: N815, UP007, UP045
     profileSampleType: Optional[ProfileSampleType] = None  # noqa: N815, UP045
     samplingMethodType: Optional[SamplingMethodType] = None  # noqa: N815, UP045
-    sampleDataCount: Optional[int] = 100  # noqa: N815, UP045
+    sampleDataCount: Optional[int] = 0  # noqa: N815, UP045
     randomizedSample: Optional[bool] = True  # noqa: N815, UP045
     profileSampleConfig: Optional[ProfileSampleConfig] = None  # noqa: N815, UP045
 
