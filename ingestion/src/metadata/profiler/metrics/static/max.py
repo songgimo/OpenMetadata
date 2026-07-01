@@ -97,70 +97,22 @@ class Max(StaticMetric):
 
     @_label
     def fn(self):
-        """sqlalchemy function"""
-        if is_concatenable(self.col.type):
-            return MaxFn(LenFn(column(self.col.name, self.col.type)), type_=self.col.type)
-        if (not is_quantifiable(self.col.type)) and (not is_date_time(self.col.type)):
-            return None
-        return MaxFn(column(self.col.name, self.col.type), type_=self.col.type)
+        """
+        sqlalchemy function.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
+        return None
 
     def df_fn(self, dfs: Optional["PandasRunner"] = None):
-        """pandas function"""
-        if dfs is None:
-            return None
-        computation = self.get_pandas_computation()
-        accumulator = computation.create_accumulator()
-        for df in dfs:
-            try:
-                accumulator = computation.update_accumulator(accumulator, df)
-            except Exception as err:
-                logger.debug(f"Error while computing max for column {self.col.name}: {err}")
-                return None
-        return computation.aggregate_accumulator(accumulator)
-
-    def get_pandas_computation(self) -> PandasComputation:
-        """Returns the logic to compute this metrics using Pandas"""
-        return PandasComputation[Optional[float], Optional[float]](  # noqa: UP045
-            create_accumulator=lambda: None,
-            update_accumulator=lambda acc, df: Max.update_accumulator(acc, df, self.col),
-            aggregate_accumulator=lambda acc: acc,
-        )
-
-    @staticmethod
-    def update_accumulator(current_max: Optional[float], df: "pd.DataFrame", column) -> Optional[float]:  # noqa: UP045
-        """Computes one DataFrame chunk and updates the running maximum
-
-        Maintains a single maximum value (not a list). Compares chunk's max
-        with current maximum and returns the larger value.
         """
-        import pandas as pd  # noqa: PLC0415
-        from pandas import Timestamp  # noqa: PLC0415
-
-        chunk_max: float | None = None
-
-        if is_quantifiable(column.type):
-            raw = df[column.name].max()
-            chunk_max = float(raw) if not bool(pd.isnull(raw)) else None  # type: ignore[arg-type]
-        elif is_date_time(column.type):
-            if column.type in {DataType.DATETIME, DataType.DATE}:
-                max_val = pd.to_datetime(df[column.name]).max()
-                if isinstance(max_val, Timestamp) and not pd.isnull(max_val):
-                    chunk_max = int(max_val.timestamp() * 1000)
-            elif column.type == DataType.TIME:
-                max_val = pd.to_timedelta(df[column.name]).max()
-                if not pd.isnull(max_val):
-                    chunk_max = max_val.seconds
-
-        if chunk_max is None:
-            return current_max
-
-        if current_max is None:
-            return chunk_max
-
-        return max(current_max, chunk_max)
+        pandas function.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
+        return None
 
     def nosql_fn(self, adaptor: NoSQLAdaptor) -> Callable[[Table], Optional[T]]:  # noqa: UP045
-        """nosql function"""
-        if is_quantifiable(self.col.type):
-            return partial(adaptor.max, column=self.col)
+        """
+        nosql function.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
         return lambda table: None

@@ -145,63 +145,9 @@ class Histogram(HybridMetric):
         session: Optional[Session] = None,  # noqa: UP045
     ):
         """
-        Build the histogram query
+        Build the histogram query.
+        Disabled for security reasons to prevent exposure of raw values.
         """
-
-        if not session:
-            raise AttributeError("We are missing the session attribute to compute the Histogram.")
-
-        if not is_quantifiable(self.col.type) or (
-            is_value_non_numeric(res.get(Min.name())) or is_value_non_numeric(res.get(Max.name()))
-        ):
-            return None
-
-        # get the metric need for the freedman-diaconis rule
-        results = self._get_res(res)
-        if not results:
-            return None
-        res_iqr, res_row_count, res_min, res_max = results
-
-        num_bins, bin_width = self._get_bins(res_iqr, res_row_count, res_min, res_max)
-
-        if num_bins == 0:
-            return None
-
-        # set starting and ending bin bounds for the first bin
-        starting_bin_bound = res_min
-        res_min = cast(Union[float, int], res_min)  # satisfy mypy  # noqa: TC006, UP007
-        ending_bin_bound = res_min + bin_width
-
-        if is_concatenable(self.col.type):
-            col = LenFn(column(self.col.name, self.col.type))
-        else:
-            col = column(self.col.name, self.col.type)  # type: ignore
-
-        case_stmts = []
-        for bin_num in range(num_bins):
-            if bin_num < num_bins - 1:
-                condition = and_(col >= starting_bin_bound, col < ending_bin_bound)
-            else:
-                # for the last bin we won't add the upper bound
-                condition = and_(col >= starting_bin_bound)
-                case_stmts.append(func.count(case((condition, col))).label(self._format_bin_labels(starting_bin_bound)))
-                continue
-
-            case_stmts.append(
-                func.count(case((condition, col))).label(
-                    self._format_bin_labels(
-                        starting_bin_bound,
-                        ending_bin_bound,
-                    )
-                )
-            )
-            starting_bin_bound = ending_bin_bound
-            ending_bin_bound += bin_width
-
-        rows = session.query(*case_stmts).select_from(sample).first()
-
-        if rows:
-            return {"boundaries": list(rows._mapping.keys()), "frequencies": list(rows)}
         return None
 
     def df_fn(
@@ -209,56 +155,8 @@ class Histogram(HybridMetric):
         res: Dict[str, Any],  # noqa: UP006
         dfs: Optional["PandasRunner"] = None,
     ):
-        """_summary_
-
-        Args:
-            res (Dict[str, Any]): dictionnary of columns values
-            dfs (Optional[PandasRunner]): list of dataframes
-
-        Returns:
-            Dict
         """
-        # pylint: disable=import-outside-toplevel
-        import numpy as np  # noqa: PLC0415
-        import pandas as pd  # noqa: PLC0415
-
-        if self.col is None or not is_quantifiable(self.col.type):
-            return None
-
-        # get the metric need for the freedman-diaconis rule
-        results = self._get_res(res)
-        if not results:
-            return None
-        res_iqr, res_row_count, res_min, res_max = results
-
-        num_bins, bin_width = self._get_bins(res_iqr, res_row_count, res_min, res_max)
-
-        if num_bins == 0:
-            return None
-
-        bins = list(np.arange(num_bins) * bin_width + res_min)
-        bins_label = [
-            self._format_bin_labels(bins[i], bins[i + 1]) if i < len(bins) - 1 else self._format_bin_labels(bins[i])
-            for i in range(len(bins))
-        ]
-
-        bins.append(np.inf)  # add the last bin
-
-        frequencies = np.zeros(num_bins)
-
-        if dfs is None:
-            return None
-
-        for df in dfs:
-            if not frequencies.any():
-                frequencies = (
-                    pd.cut(df[self.col.name], bins, right=False).value_counts().values
-                )  # right boundary is exclusive
-                continue
-            frequencies += (
-                pd.cut(df[self.col.name], bins, right=False).value_counts().values
-            )  # right boundary is exclusive
-
-        if frequencies.size > 0:  # pyright: ignore[reportAttributeAccessIssue]
-            return {"boundaries": bins_label, "frequencies": frequencies.tolist()}
+        Dataframe function.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
         return None

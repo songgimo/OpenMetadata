@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Optional, cast
 
 from metadata.generated.schema.configuration.profilerConfiguration import (
     ProfilerConfiguration,
+    SampleDataIngestionConfig,
 )
 from metadata.generated.schema.entity.services.ingestionPipelines.status import (
     StackTraceError,
@@ -97,6 +98,15 @@ class SamplerProcessor(Processor):
         if settings:
             profiler_cfg = cast(ProfilerConfiguration, settings.config_value)  # noqa: TC006
             self._sample_data_config = profiler_cfg.sampleDataConfig
+
+        # Security Override: Ensure sample data ingestion is always disabled regardless of UI settings
+        if self._sample_data_config:
+            if self._sample_data_config.storeSampleData or self._sample_data_config.readSampleData:
+                logger.info("Security Policy: Overriding sample data configuration to disabled.")
+            self._sample_data_config.storeSampleData = False
+            self._sample_data_config.readSampleData = False
+        else:
+            self._sample_data_config = SampleDataIngestionConfig(storeSampleData=False, readSampleData=False)
 
     @property
     def name(self) -> str:

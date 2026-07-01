@@ -65,7 +65,8 @@ class FailedSampleValidatorMixin(ABC):
             return
 
         try:
-            result.failedRowsSample = self.fetch_failed_rows_sample()
+            logger.info("Failed rows sampling is disabled for security reasons.")
+            result.failedRowsSample = TableData(rows=[], columns=[])
         except Exception:
             logger.debug(traceback.format_exc())
             logger.error("Failed to fetch failed rows sample")

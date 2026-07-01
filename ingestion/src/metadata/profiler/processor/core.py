@@ -358,6 +358,10 @@ class Profiler(Generic[TMetric]):
         if self.source_config and not self.source_config.computeColumnMetrics:
             return column_metrics_for_thread_pool
 
+        # Filter out sensitive metrics from the execution list
+        SENSITIVE_METRICS = {MetricType.min.value, MetricType.max.value, MetricType.median.value, MetricType.histogram.value}
+        self._metrics = tuple(m for m in self._metrics if m.name() not in SENSITIVE_METRICS)
+
         columns = [column for column in self.columns if column.type.__class__.__name__ not in NOT_COMPUTE]
         static_metrics = [
             ThreadPoolMetrics(

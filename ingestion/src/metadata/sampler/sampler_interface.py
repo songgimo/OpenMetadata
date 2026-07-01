@@ -154,41 +154,12 @@ class SamplerInterface(ABC):
         return value
 
     def generate_sample_data(self, sample_data_config: Optional[SampleDataIngestionConfig] = None) -> TableData:  # noqa: UP045
-        """Fetch and ingest sample data
-
-        Returns:
-            TableData: sample data
         """
-        if sample_data_config is None:
-            # if there is no global config, default to storing and reading sample data to ensure backward compatibility
-            # and availability of sample data for downstream steps
-            sample_data_config = SampleDataIngestionConfig(storeSampleData=True, readSampleData=True)
-
-        if not sample_data_config.storeSampleData and not sample_data_config.readSampleData:
-            logger.info("Both storing and reading of sample data are disabled. Skipping sample data generation.")
-            return TableData(rows=[], columns=[])
-        try:
-            if sample_data_config.readSampleData or sample_data_config.storeSampleData:
-                logger.debug(f"Fetching sample data for {self.entity.fullyQualifiedName.root}...")
-                table_data = self.fetch_sample_data(self.columns)
-                table_data.rows = [
-                    [self._truncate_cell(cell) for cell in row]
-                    for row in table_data.rows[: min(SAMPLE_DATA_DEFAULT_COUNT, self.sample_limit)]
-                ]
-                if self.upload_sample_storage_config and sample_data_config.storeSampleData:
-                    upload_sample_data(
-                        data=table_data,
-                        entity=self.entity,
-                        sample_storage_config=self.upload_sample_storage_config,
-                    )
-                return table_data
-
-            return TableData(rows=[], columns=[])
-
-        except Exception as err:
-            logger.debug(traceback.format_exc())
-            logger.warning(f"Error fetching sample data: {err}")
-            raise err  # noqa: TRY201
+        Fetch and ingest sample data.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
+        logger.info("Sample data generation is disabled for security reasons.")
+        return TableData(rows=[], columns=[])
 
     @property
     def columns(self) -> List[SQALikeColumn]:  # noqa: UP006

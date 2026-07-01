@@ -67,106 +67,15 @@ class Median(StaticMetric, PercentilMixin):
 
     @_label
     def fn(self):
-        """sqlalchemy function
-
-        Supports optional dimension_col property for GROUP BY correlation.
-        Set via: add_props(dimension_col=col.name)(Metrics.median.value)
         """
-        # Get optional dimension_col property (for dimensionality validation)
-        # Expected to be a string column name, not a Column object
-        dimension_col = getattr(self, "dimension_col", None)
-
-        if is_quantifiable(self.col.type):
-            # col fullname is only needed for MySQL and SQLite
-            return self._compute_sqa_fn(
-                column(self.col.name, self.col.type),
-                self.col.table.name if self.col.table is not None else None,
-                0.5,
-                dimension_col,
-            )
-
-        if is_concatenable(self.col.type):
-            return self._compute_sqa_fn(
-                LenFn(column(self.col.name, self.col.type)),
-                self.col.table.name if self.col.table is not None else None,
-                0.5,
-                dimension_col,
-            )
-
-        logger.debug(f"Don't know how to process type {self.col.type} when computing Median")
+        sqlalchemy function.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
         return None
 
     def df_fn(self, dfs: Optional["PandasRunner"] = None):
-        """Dataframe function"""
-        if dfs is None:
-            return None
-        computation = self.get_pandas_computation()
-        accumulator = computation.create_accumulator()
-        for df in dfs:
-            try:
-                accumulator = computation.update_accumulator(accumulator, df)
-            except MemoryError:
-                logger.error(
-                    f"Unable to compute Median for {self.col.name} due to memory constraints."
-                    f"We recommend using a smaller sample size or partitioning."
-                )
-                return None
-            except Exception as err:
-                logger.debug(f"Error while computing Median for column {self.col.name}: {err}")
-                return None
-        median = computation.aggregate_accumulator(accumulator)
-
-        if median is None:
-            logger.warning(f"Don't know how to process type {self.col.type} when computing MEDIAN")
-            return None
-        return median
-
-    def get_pandas_computation(self) -> PandasComputation:
-        return PandasComputation[MedianAccumulator, Optional[float]](  # noqa: UP045
-            create_accumulator=lambda: MedianAccumulator([], 0),
-            update_accumulator=lambda acc, df: Median.update_accumulator(acc, df, self.col),
-            aggregate_accumulator=Median.aggregate_accumulator,
-        )
-
-    @staticmethod
-    def update_accumulator(acc: MedianAccumulator, df: "pd.DataFrame", column) -> MedianAccumulator:
-        import numpy as np  # pylint: disable=import-outside-toplevel  # noqa: F401, PLC0415
-        import pandas as pd  # pylint: disable=import-outside-toplevel  # noqa: F401, PLC0415
-
-        series = df[column.name].dropna()
-        if series.empty:
-            return acc
-
-        arr: Optional["np.ndarray"] = None  # noqa: UP037, UP045
-
-        if is_quantifiable(column.type):
-            try:
-                arr = series.to_numpy(dtype=float, copy=False)
-            except Exception:  # noqa: BLE001, RUF100
-                arr = series.astype(float).to_numpy(copy=False)
-        else:
-            logger.debug(f"Don't know how to process type {column.type} when computing Median")
-
-        if arr is None or arr.size == 0:
-            return acc
-
-        acc.arrays.append(arr)
-        return MedianAccumulator(acc.arrays, acc.count_value + int(arr.size))
-
-    @staticmethod
-    def aggregate_accumulator(acc: MedianAccumulator) -> Optional[float]:  # noqa: UP045
-        import numpy as np  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
-
-        if acc.count_value == 0:
-            return None
-
-        if len(acc.arrays) == 1:
-            data = acc.arrays[0]
-        else:
-            data = np.concatenate(acc.arrays, axis=0)
-
-        median_val = np.median(data)
-
-        if np.isnan(median_val):
-            return None
-        return float(median_val)
+        """
+        Dataframe function.
+        Disabled for security reasons to prevent exposure of raw values.
+        """
+        return None

@@ -27,6 +27,7 @@ from metadata.ingestion.api.models import Either
 from metadata.ingestion.api.steps import Processor
 from metadata.ingestion.lineage.models import ConnectionTypeDialectMapper, Dialect
 from metadata.ingestion.lineage.parser import LineageParser
+from metadata.ingestion.lineage.masker import mask_query
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.utils.logger import ingestion_logger
 from metadata.utils.time_utils import datetime_to_timestamp
@@ -64,12 +65,14 @@ def parse_sql_statement(
     if not lineage_parser.involved_tables:
         return None
 
+    masked_sql = mask_query(record.query, dialect=dialect.value) or record.query
+
     return ParsedData(
         tables=lineage_parser.clean_table_list,
         joins=lineage_parser.table_joins,
         databaseName=record.databaseName,
         databaseSchema=record.databaseSchema,
-        sql=record.query,
+        sql=masked_sql,
         query_type=record.query_type,
         exclude_usage=record.exclude_usage,
         dialect=dialect.value,
