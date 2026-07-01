@@ -54,8 +54,8 @@ Usage Ingestion 시 수집되는 원시 SQL 문(예: `WHERE email='test@test.com
 
 - **Action 4-1 (Python)**: 파이프라인 전송 전 선제적 Parameterization (마스킹)
   - **대상 파일**: `ingestion/src/metadata/ingestion/processor/query_parser.py`
-  - **대상 파일과 함수가 하는 작업**: Usage 파이프라인에서 원천 DB의 쿼리 로그(Query History)를 긁어온 뒤, 각 쿼리가 어떤 테이블들을 다루는지 분석(Parse)하여 그 결과를 백엔드 서버로 전송하는 모듈입니다.
-  - **작업 내용**: 파싱된 원시 SQL을 REST API로 쏘기 전에 쿼리 내 상수 파라미터를 `?` 혹은 `***`로 치환하는 방어 로직을 삽입합니다.
+  - **대상 파일과 함수가 하는 작업**: Usage 파이프라인에서 원천 DB의 쿼리 로그(Query History)를 긁어온 뒤, 이 파일 내의 **`parse_sql_statement()`** 함수가 각 쿼리를 분석(Parse)하여 서버로 보낼 최종 페이로드(`ParsedData`)를 조립합니다.
+  - **작업 내용**: `parse_sql_statement()` 함수가 `ParsedData` 객체를 생성하여 반환하기 직전에, 원본 쿼리 문자열(`record.query`)을 가로채어 내부의 상수 파라미터를 `?` 혹은 `***`로 치환하는 마스킹 로직을 삽입합니다.
 
 ---
 
