@@ -1,47 +1,48 @@
 # Phase 2: Architectural Blueprinting (@arch)
 
-## 🎯 설계 목표 (Goal)
-오픈메타데이터 정책에 따라 어떤 데이터 엔티티(Table, Topic, Container, File, SearchIndex)의 샘플 데이터도 내부 DB에 저장되지 않도록 강제합니다. (사용자 선택: **옵션 B - 서버 코드 수정(Hard Block)**)
+## 🎯 3차 심층 전수조사 결과 및 설계 목표 (Goal)
+사용자님의 지시에 따라, 오픈메타데이터가 "외부 시스템에서 실제 데이터를 땡겨와 내부에 적재"하는 모든 로직에 대해 3차례의 추가 심층 분석을 진행했습니다. 그 결과, 기존에 발견된 3가지(Sampler, DQ Failed Rows, Profiler Min/Max) 외에도 **실제 데이터(문자열, 셀 값, 쿼리 리터럴 등)가 메타데이터 DB로 유입되는 3가지 치명적 경로를 추가로 발견**했습니다.
 
-## 🏗 아키텍처 접근 방식
-Dropwizard 백엔드의 각 데이터 자원(Repository) 클래스 내에 있는 `addSampleData()` 메서드 구현을 수정합니다.
-Ingestion(Profiler) 파이프라인에서 샘플 데이터 삽입 요청(`PUT /api/v1/.../sampleData`)이 들어올 때, **파이프라인 동작을 중단(Crash)시키지 않으면서도 DB 적재를 막기 위해** 에러(Exception)를 던지는 대신 DB `insert` 로직을 생략(Bypass/Silent Drop)하고 기존 엔티티를 그대로 200 OK 상태로 반환하도록 설계합니다.
+총 **6가지 유출 경로**를 완벽하게 차단하도록 아키텍처를 재설계했습니다.
 
-## User Review Required
+### 🔍 [기존 3개 경로]
+1. **Sample Data (일반 샘플 데이터)**: `SELECT * LIMIT 50` 
+2. **Failed Rows Sample (DQ 실패 행)**: `SELECT * WHERE ...`
+3. **Profiler Metrics (Min/Max/Median)**: 컬럼의 실제 최댓값/최솟값 셀 데이터 적재.
 
-> [!WARNING]
-> **API 호환성 및 Silent Drop 정책**
-> REST API에서 에러(400 Bad Request 등)를 반환하면 Python 프로파일러 전체가 실패할 위험이 있어, 서버가 "요청은 정상적으로 받았으나 저장하지 않는다(Silent Drop)"는 방식을 택했습니다.
-
-## Proposed Changes
-
-### 백엔드 Repository 컴포넌트 (Java)
-
-샘플 데이터가 저장되는 모든 엔티티의 Repository에서 `daoCollection.entityExtensionDAO().insert(...)` 구문을 제거하거나 Bypass 처리합니다.
-
-#### [MODIFY] [TableRepository.java](file:///Users/gimo/projects/OpenMetadata/openmetadata-service/src/main/java/org/openmetadata/service/jdbi3/TableRepository.java)
-- `addSampleData(UUID tableId, TableData tableData)` 내부의 `insert` 부분 및 `table.withSampleData(tableData)` 바인딩 생략 (DB 적재 방지).
-- 향후 식별을 위해 로거(LOG)로 "Sample data storage is disabled by policy" 경고 출력 추가.
-
-#### [MODIFY] [TopicRepository.java](file:///Users/gimo/projects/OpenMetadata/openmetadata-service/src/main/java/org/openmetadata/service/jdbi3/TopicRepository.java)
-- `addSampleData(UUID topicId, TopicSampleData sampleData)` 내부 로직 Bypass.
-
-#### [MODIFY] [ContainerRepository.java](file:///Users/gimo/projects/OpenMetadata/openmetadata-service/src/main/java/org/openmetadata/service/jdbi3/ContainerRepository.java)
-- `addSampleData(UUID containerId, TableData tableData)` 내부 로직 Bypass.
-
-#### [MODIFY] [SearchIndexRepository.java](file:///Users/gimo/projects/OpenMetadata/openmetadata-service/src/main/java/org/openmetadata/service/jdbi3/SearchIndexRepository.java)
-- `addSampleData(UUID searchIndexId, SearchIndexSampleData sampleData)` 내부 로직 Bypass.
-
-#### [MODIFY] [FileRepository.java](file:///Users/gimo/projects/OpenMetadata/openmetadata-service/src/main/java/org/openmetadata/service/jdbi3/FileRepository.java)
-- `addSampleData(UUID fileId, TableData tableData)` 내부 로직 Bypass.
+### 🚨 [추가 발견된 3개 치명적 유출 경로]
+4. **Profiler: Cardinality Distribution (Top-K 카테고리 데이터 유출)**
+   - `columnProfile` 스키마 내에 `cardinalityDistribution.categories`가 존재합니다. 이는 해당 컬럼에서 가장 자주 등장하는 값(Top-K)의 문자열 데이터(예: 이메일 도메인, 이름, 특정 식별자 등)를 그대로 배열 형태로 가져와 DB에 적재합니다.
+5. **Query History (원시 쿼리 내 리터럴 값 유출)**
+   - Usage/Query Ingestion 파이프라인은 Snowflake, Redshift 등의 `query_history`를 긁어옵니다. 이때 사용자가 실행한 원시 SQL(예: `WHERE email='test@example.com'`)이 `Query` 엔티티의 `query` 필드에 텍스트 그대로 저장되어, 실제 검색 조건으로 쓰인 민감 데이터가 무방비로 적재됩니다.
+6. **Data Quality: Inspection Query 및 결과값 유출**
+   - 데이터 품질 테스트(특히 `tableCustomSQLQuery` 등 커스텀 쿼리) 수행 시, 테스트를 위해 DB에 날린 원시 쿼리(Inspection Query)와 그 쿼리의 반환 결과값(`testResultValue`)이 문자열 형태로 그대로 저장됩니다.
 
 ---
 
+## 🏗 아키텍처 접근 방식 (Defense-in-Depth V2)
+
+### 1. Java 백엔드 (Server-side Silent Drop & Nullification)
+- **Repository `addSampleData`, `addFailedRowsSample`**: 데이터 DB `insert` 구문을 완벽히 생략 (기존 계획 유지).
+- **TableProfile 적재 방어**: `TableRepository.addTableProfile` 과정에서 전달된 `ColumnProfile` 내의 다음 필드를 강제로 `null` 처리합니다.
+  - `min`, `max`, `median`, `firstQuartile`, `thirdQuartile`
+  - `cardinalityDistribution` 및 `histogram`
+- **Query 엔티티 적재 방어**: 쿼리 텍스트 로깅이 불가피하다면 정규식 기반 리터럴 마스킹(`'...'` -> `'***'`)을 백엔드 단에 강제 적용하거나, 보안 수준에 따라 Query 엔티티 적재 자체를 Bypass 처리.
+
+### 2. Python Ingestion (Client-side Query Bypass & Masking)
+- **샘플 및 실패 행 원천 쿼리 차단**: `generate_sample_data()` 및 `fetch_failed_rows_sample()`에서 무조건 빈 배열 반환. (기존 계획 유지)
+- **프로파일러 스펙 제한**: `metadata/profiler/metrics/` 로직에서 `Cardinality`, `Min`, `Max` 등 문자열 데이터를 반환할 수 있는 연산의 실행 자체를 비활성화(Skip)하여 DB에 과부하를 주지 않음.
+- **Query Ingestion 마스킹 (필수)**: 
+  - 원천 DB로부터 가져온 원시 쿼리 문자열을 OM 서버로 전송하기 전, 쿼리 내의 **모든 상수(리터럴) 값을 `?` 또는 `***`로 치환(Parameterization)** 하도록 강제합니다.
+
+---
+
+## User Review Required
+
+> [!CAUTION]
+> **Query History 파이프라인 제약**
+> 추가 발견된 5번(Query 원시 리터럴 유출)을 차단하기 위해, SQL 쿼리 문자열의 모든 상수를 마스킹(`***`)하는 강력한 전처리를 적용할 계획입니다. 이렇게 되면 UI에서 리니지는 볼 수 있으나 사용자가 쳤던 정확한 WHERE 조건값은 확인할 수 없게 됩니다. 보안 상 필수 조치입니다.
+
 ## Verification Plan
-
-### Automated Tests
-- `mvn clean package -DskipTests` (빌드 확인)
-- 관련 엔티티의 단위/통합 테스트에서 샘플 데이터 테스트가 깨지는지 확인. `testAddSampleData` 류의 테스트가 있다면, 의도된 `Bypass` 동작에 맞게 테스트 코드를 수정하거나 무시(Ignore) 처리 필요.
-
-### Manual Verification
-- 로컬 도커 환경에서 강제로 Sample Data Ingestion 파이프라인을 실행해보고, 로그에 Bypass 경고가 남으며 DB에 적재되지 않는지 점검.
+1. **Mock Data Test**: Query Ingestion 테스트 코드에 `SELECT * FROM tbl WHERE id=123` 쿼리를 주입했을 때, DB에는 `WHERE id=***` 로 적재되는지 검증.
+2. **Profiler Test**: Profile Ingestion 후 `ColumnProfile` 엔티티 내에 `min`, `max`, `categories` 배열이 절대 존재하지 않는지 (Null 반환) Assert.
