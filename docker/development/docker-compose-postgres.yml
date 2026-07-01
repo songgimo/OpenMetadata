@@ -33,7 +33,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-     - ./docker-volume/db-data-postgres:/var/lib/postgresql/data
+      - ./docker-volume/db-data-postgres:/var/lib/postgresql/data
     networks:
       - local_app_net
     healthcheck:
@@ -200,7 +200,7 @@ services:
       ELASTICSEARCH_SOCKET_TIMEOUT_SECS: ${ELASTICSEARCH_SOCKET_TIMEOUT_SECS:-60}
       ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: ${ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS:-600}
       ELASTICSEARCH_BATCH_SIZE: ${ELASTICSEARCH_BATCH_SIZE:-100}
-      ELASTICSEARCH_PAYLOAD_BYTES_SIZE: ${ELASTICSEARCH_PAYLOAD_BYTES_SIZE:-10485760}   #max payLoadSize in Bytes
+      ELASTICSEARCH_PAYLOAD_BYTES_SIZE: ${ELASTICSEARCH_PAYLOAD_BYTES_SIZE:-10485760} #max payLoadSize in Bytes
       ELASTICSEARCH_INDEX_MAPPING_LANG: ${ELASTICSEARCH_INDEX_MAPPING_LANG:-EN}
       # AWS IAM Authentication for OpenSearch (auto-enabled when AWS_DEFAULT_REGION is set)
       # Uses standard AWS env vars: https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html
@@ -244,7 +244,7 @@ services:
       #email configuration:
       OM_EMAIL_ENTITY: ${OM_EMAIL_ENTITY:-"OpenMetadata"}
       OM_SUPPORT_URL: ${OM_SUPPORT_URL:-"https://slack.open-metadata.org"}
-      AUTHORIZER_ENABLE_SMTP : ${AUTHORIZER_ENABLE_SMTP:-false}
+      AUTHORIZER_ENABLE_SMTP: ${AUTHORIZER_ENABLE_SMTP:-false}
       OPENMETADATA_SERVER_URL: ${OPENMETADATA_SERVER_URL:-""}
       OPENMETADATA_SMTP_SENDER_MAIL: ${OPENMETADATA_SMTP_SENDER_MAIL:-""}
       SMTP_SERVER_ENDPOINT: ${SMTP_SERVER_ENDPOINT:-""}
@@ -333,7 +333,7 @@ services:
       AUTHENTICATION_CALLBACK_URL: ${AUTHENTICATION_CALLBACK_URL:-""}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS:-[email,preferred_username,sub]}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
-      AUTHENTICATION_ENABLE_SELF_SIGNUP : ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
       AUTHENTICATION_CLIENT_TYPE: ${AUTHENTICATION_CLIENT_TYPE:-public}
       #For OIDC Authentication, when client is confidential
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-""}
@@ -432,7 +432,7 @@ services:
       ELASTICSEARCH_SOCKET_TIMEOUT_SECS: ${ELASTICSEARCH_SOCKET_TIMEOUT_SECS:-60}
       ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: ${ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS:-600}
       ELASTICSEARCH_BATCH_SIZE: ${ELASTICSEARCH_BATCH_SIZE:-100}
-      ELASTICSEARCH_PAYLOAD_BYTES_SIZE: ${ELASTICSEARCH_PAYLOAD_BYTES_SIZE:-10485760}   #max payLoadSize in Bytes
+      ELASTICSEARCH_PAYLOAD_BYTES_SIZE: ${ELASTICSEARCH_PAYLOAD_BYTES_SIZE:-10485760} #max payLoadSize in Bytes
       ELASTICSEARCH_INDEX_MAPPING_LANG: ${ELASTICSEARCH_INDEX_MAPPING_LANG:-EN}
       # AWS IAM Authentication for OpenSearch (auto-enabled when AWS_DEFAULT_REGION is set)
       # Uses standard AWS env vars: https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html
@@ -467,11 +467,11 @@ services:
       OM_SM_REGION: ${OM_SM_REGION:-""}
       OM_SM_ACCESS_KEY_ID: ${OM_SM_ACCESS_KEY_ID:-""}
       OM_SM_ACCESS_KEY: ${OM_SM_ACCESS_KEY:-""}
-      
+
       #email configuration:
       OM_EMAIL_ENTITY: ${OM_EMAIL_ENTITY:-"OpenMetadata"}
       OM_SUPPORT_URL: ${OM_SUPPORT_URL:-"https://slack.open-metadata.org"}
-      AUTHORIZER_ENABLE_SMTP : ${AUTHORIZER_ENABLE_SMTP:-false}
+      AUTHORIZER_ENABLE_SMTP: ${AUTHORIZER_ENABLE_SMTP:-false}
       OPENMETADATA_SERVER_URL: ${OPENMETADATA_SERVER_URL:-""}
       OPENMETADATA_SMTP_SENDER_MAIL: ${OPENMETADATA_SMTP_SENDER_MAIL:-""}
       SMTP_SERVER_ENDPOINT: ${SMTP_SERVER_ENDPOINT:-""}
@@ -479,7 +479,7 @@ services:
       SMTP_SERVER_USERNAME: ${SMTP_SERVER_USERNAME:-""}
       SMTP_SERVER_PWD: ${SMTP_SERVER_PWD:-""}
       SMTP_SERVER_STRATEGY: ${SMTP_SERVER_STRATEGY:-"SMTP_TLS"}
-      
+
       #extensionConfiguration
       OM_RESOURCE_PACKAGES: ${OM_RESOURCE_PACKAGES:-[]}
       OM_EXTENSIONS: ${OM_EXTENSIONS:-[]}
@@ -505,7 +505,7 @@ services:
     networks:
       - local_app_net
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider",  "http://localhost:8586/healthcheck" ]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8586/healthcheck" ]
 
   ingestion:
     build:
@@ -557,8 +557,7 @@ services:
       - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
       - ingestion-volume-dags:/opt/airflow/dags
       - ingestion-volume-tmp:/tmp
-      - /var/run/docker.sock:/var/run/docker.sock:z  # Need 600 permissions to run DockerOperator
-
+      - /var/run/docker.sock:/var/run/docker.sock:z # Need 600 permissions to run DockerOperator
 
 networks:
   local_app_net:
