@@ -65,7 +65,38 @@ Usage Ingestion 시 수집되는 원시 SQL 문(예: `WHERE email='test@test.com
 > 사용자의 요청에 따라 Java 백엔드 측의 수정 방안(옵션 B)을 배제하고, Ingestion 단의 클라이언트 레벨(옵션 A)에서만 샘플 데이터 수집을 강제로 막는 방향으로 설계를 재구성하였습니다.
 > 이 설계로 진행하는 것에 동의하신다면 승인(Proceed)을 지시해 주시고 `@be`로 핸드오프해 주십시오.
 
-## Verification Plan
-1. **Mock Data Test**: Query Ingestion 단위 테스트 환경에 쿼리를 주입했을 때 마스킹이 정상 수행되는지 검증.
-2. **Profiler Test**: Profile 연산 스킵 로직이 정상 작동하는지 `pytest` 검증.
-3. **Sample Data Test**: Sampler 실행 시 원천 DB로 쿼리를 날리지 않고 빈 데이터를 리턴하는지 검증.
+## 🧪 Verification & Test Plan (@qa & @be)
+
+> [!IMPORTANT]
+> **QA 엔지니어(@qa)**의 Zero-Trust 검증 원칙에 따라, DB 커넥터 종류나 UI 설정값에 관계없이 원천 데이터가 서버로 유출되지 않음을 증명해야 합니다.
+> **백엔드 엔지니어(@be)**는 프로젝트 규칙에 따라 `unittest.TestCase` 상속을 피하고, 순수 `pytest`와 `mocker` 픽스처를 사용하여 테스트를 구현합니다.
+
+### 1. 샘플 데이터 차단 방어 테스트 (Task 1)
+- **대상**: `ingestion/tests/unit/sampler/test_sampler_override.py` (신규)
+- **검증 내용**: 
+  - `SamplerProcessor` 초기화 시 사용자의 UI 설정과 무관하게 `storeSampleData`, `generateSampleData` 설정이 강제로 `False`로 오버라이드되는지 확인.
+  - `generate_sample_data()` 호출 시 실제 DB 커서(`execute`)가 호출되지 않으며 항상 `TableData(columns=[], rows=[])`를 반환하는지 검증.
+
+### 2. 데이터 품질 테스트 실패 행 수집 차단 테스트 (Task 2)
+- **대상**: `ingestion/tests/unit/data_quality/test_failed_sample_validator.py` (신규)
+- **검증 내용**: 
+  - DQ 테스트가 "Failed" 상태일 때 에러 로그 후처리를 담당하는 `BaseTestHandler`가 호출되더라도, 실제 데이터를 가져오는 내부 SQL 쿼리 로직이 호출 스킵(`assert_not_called`)됨을 검증.
+
+### 3. 프로파일러 민감 지표 스킵 테스트 (Task 3)
+- **대상**: `ingestion/tests/unit/profiler/test_profiler_metrics_blocker.py` (신규)
+- **검증 내용**:
+  - `ProfilerProcessorConfig` 생성 시 `min`, `max`, `median`과 같은 민감 지표가 메트릭 설정 배열에서 자동 필터링되는지 검증.
+  - `Min`, `Max` 등 개별 메트릭 클래스의 쿼리 제너레이터 함수가 SQL문을 반환하지 않음을 확인.
+
+### 4. 쿼리 히스토리 리터럴 마스킹 테스트 (Task 4)
+- **대상**: `ingestion/tests/unit/test_query_parser.py` (기존 혹은 신규 작성)
+- **검증 내용**:
+  - 파라미터화된 테스트(`@pytest.mark.parametrize`)를 구성하여, `SELECT * FROM users WHERE email='ceo@company.com'` 등의 원시 쿼리가 주입되었을 때 리터럴 값이 `?` 또는 `***`로 안전하게 치환된 `ParsedData` 객체가 생성되는지 확인.
+
+---
+
+## 참고사항
+- `workflow/ingestion.py`에 들어가보면 run() 함수에서 `processed_record`를 받아서  
+  `if processed_record is not None and isinstance(step, (Processor, Stage, Sink)):`  
+  condition을 만족하면 `step.run(processed_record)` 를 호출하여 다음 단계로 넘기는 구조이다.
+- Sink가 되는 곳을 찾으려면 `ingestion/src/metadata/ingestion/sink/metadata_rest.py`에서 `ingestion.sink.metadata_rest.MetadataRestSink` 를 참고하자.
