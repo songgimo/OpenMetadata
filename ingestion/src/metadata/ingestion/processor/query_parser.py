@@ -69,7 +69,7 @@ def parse_sql_statement(
         joins=lineage_parser.table_joins,
         databaseName=record.databaseName,
         databaseSchema=record.databaseSchema,
-        sql=record.query,
+        sql="/* REDACTED FOR ZERO DATA LEAKAGE */",
         query_type=record.query_type,
         exclude_usage=record.exclude_usage,
         dialect=dialect.value,
