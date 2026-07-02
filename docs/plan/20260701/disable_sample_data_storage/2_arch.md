@@ -32,6 +32,11 @@ DQ(Data Quality) 검증 실패 시 식별 목적으로 가져오는 실제 데�
   - **대상 파일과 함수가 하는 작업**: 이 파일은 데이터 품질(Data Quality) 테스트가 실패했을 때 후처리를 담당하는 핵심 모듈입니다. 테스트가 실패하면 기본적으로 `fetch_failed_rows_sample()` 함수가 실행되어 "왜 실패했는지" 사용자가 확인할 수 있도록 실제 에러가 난 데이터 행(예: null이 들어가면 안 되는데 null이 들어간 row)들을 쿼리해서 가져옵니다. 
   - **작업 내용**: 이 후처리 로직(`result_with_failed_samples` 등) 내에서 실제 실패 행을 가져오는 쿼리 실행부를 강제로 건너뛰게 만들어, 테스트의 '성공/실패 여부'와 '실패 건수'는 정상적으로 기록되되 '실패한 실제 데이터 값'만 유출되지 않도록 막습니다.
 
+- **Action 2-3 (Code-level Configuration Override)**: 설정 파싱 단계에서의 강제 덮어쓰기
+  - **대상 파일**: `ingestion/src/metadata/data_quality/processor/test_case_runner.py` 등 Test Case 초기화 부
+  - **대상 파일과 함수가 하는 작업**: 파이프라인 구동 시 서버에 등록된 데이터 품질 테스트 케이스(TestCase) 목록을 로드하여 각각의 테스트를 실행 준비하는 역할을 합니다.
+  - **작업 내용**: 사용자가 UI에서 '실패 행 수집(Collect Failed Rows)'을 켜서 `computePassedFailedRowCount=True` 설정이 넘어오더라도, Python 파이프라인 코드에서 해당 값을 강제로 `False`로 덮어씌웁니다(Override). 이를 통해 설정값 실수로 인한 휴먼 에러마저 방어합니다.
+
 ### Task 3: 프로파일러 지표(Profiler Metrics) 내 민감 셀 데이터 적재 차단
 문자열/숫자 컬럼의 최솟값, 최댓값, 중앙값 및 빈출 단어 목록(Top-K) 등 데이터 값이 직접적으로 노출될 수 있는 프로파일러 지표 연산을 비활성화합니다.
 
@@ -49,13 +54,13 @@ DQ(Data Quality) 검증 실패 시 식별 목적으로 가져오는 실제 데�
   - **대상 파일과 함수가 하는 작업**: 사용자가 UI에서 배포한 프로파일러 파이프라인의 전체 설정(어떤 테이블의 어떤 지표를 수집할지 명시된 배열)을 읽어들여 실제 연산 프로세서를 세팅하는 오케스트레이션 역할을 합니다.
   - **작업 내용**: 사용자가 UI의 고급 설정에서 `min`, `max`, `median` 등의 민감 지표를 명시적으로 선택하여 파이프라인을 배포하더라도, Python 파이프라인이 실행되기 직전에 `metrics` 배열을 가로채어 민감 지표들을 배열에서 강제로 삭제(Filter-out)합니다.
 
-### Task 4: 사용자 쿼리 히스토리(Query History) 내 리터럴 값 마스킹
-Usage Ingestion 시 수집되는 원시 SQL 문(예: `WHERE email='test@test.com'`) 내부의 모든 상수값(리터럴)을 서버로 전송하기 전에 마스킹 처리합니다.
+### Task 4: 사용자 쿼리 히스토리(Query History) 원문 적재 완전 차단
+Usage Ingestion 시 수집되는 원시 SQL 문 전체를 서버로 전송하기 전에 더미 텍스트로 덮어씌워 쿼리 원문 자체가 저장되지 않도록 차단합니다.
 
-- **Action 4-1 (Python)**: 파이프라인 전송 전 선제적 Parameterization (마스킹)
+- **Action 4-1 (Python)**: 파이프라인 전송 전 쿼리 원문 삭제(Redact)
   - **대상 파일**: `ingestion/src/metadata/ingestion/processor/query_parser.py`
   - **대상 파일과 함수가 하는 작업**: Usage 파이프라인에서 원천 DB의 쿼리 로그(Query History)를 긁어온 뒤, 이 파일 내의 **`parse_sql_statement()`** 함수가 각 쿼리를 분석(Parse)하여 서버로 보낼 최종 페이로드(`ParsedData`)를 조립합니다.
-  - **작업 내용**: `parse_sql_statement()` 함수가 `ParsedData` 객체를 생성하여 반환하기 직전에, 원본 쿼리 문자열(`record.query`)을 가로채어 내부의 상수 파라미터를 `?` 혹은 `***`로 치환하는 마스킹 로직을 삽입합니다.
+  - **작업 내용**: API 스키마 상 `sql` 필드가 필수(Required)이므로 `None`으로 보낼 수 없습니다. 따라서 `ParsedData` 조립 시 `sql=record.query` 부분을 `sql="/* REDACTED FOR ZERO DATA LEAKAGE */"`와 같이 정적 더미 텍스트로 치환하여 쿼리가 아예 저장되지 않게 합니다.
 
 ### Task 5: 프론트엔드(React) UI에서 Sample Data 노출 제거
 Python Ingestion에서 샘플 데이터를 원천 차단함에 따라 발생하는 UX 혼선을 방지하기 위해 프론트엔드 화면에서 해당 기능을 숨깁니다.
