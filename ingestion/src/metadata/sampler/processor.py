@@ -98,6 +98,18 @@ class SamplerProcessor(Processor):
             profiler_cfg = cast(ProfilerConfiguration, settings.config_value)  # noqa: TC006
             self._sample_data_config = profiler_cfg.sampleDataConfig
 
+        # [Zero Data Leakage Policy] Force disable sample data configurations
+        if hasattr(self.source_config, "generateSampleData"):
+            self.source_config.generateSampleData = False
+        if hasattr(self.source_config, "storeSampleData"):
+            self.source_config.storeSampleData = False
+
+        if self._sample_data_config:
+            if hasattr(self._sample_data_config, "storeSampleData"):
+                self._sample_data_config.storeSampleData = False
+            if hasattr(self._sample_data_config, "readSampleData"):
+                self._sample_data_config.readSampleData = False
+
     @property
     def name(self) -> str:
         return "Sampler"

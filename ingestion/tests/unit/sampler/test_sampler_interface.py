@@ -60,7 +60,7 @@ class TestTruncateCell:
 
 
 class TestGenerateSampleData:
-    """Test SamplerInterface.generate_sample_data with SampleDataIngestionConfig"""
+    """Test SamplerInterface.generate_sample_data with Zero Data Leakage Policy"""
 
     @pytest.fixture
     def sampler(self):
@@ -83,55 +83,27 @@ class TestGenerateSampleData:
 
         return sampler
 
-    def test_both_disabled_returns_empty(self, sampler):
-        config = SampleDataIngestionConfig(storeSampleData=False, readSampleData=False)
+    def test_generate_sample_data_always_returns_empty(self, sampler):
+        # Even with configs enabled, Zero Data Leakage policy should force it to empty
+        config = SampleDataIngestionConfig(storeSampleData=True, readSampleData=True)
         result = sampler.generate_sample_data(config)
 
         assert result.rows == []
         assert result.columns == []
         sampler.fetch_sample_data.assert_not_called()
 
-    def test_read_only_fetches_but_does_not_store(self, sampler):
-        config = SampleDataIngestionConfig(storeSampleData=False, readSampleData=True)
-        result = sampler.generate_sample_data(config)
-
-        assert len(result.rows) == 2
-        sampler.fetch_sample_data.assert_called_once()
-
-    def test_store_enabled_fetches_data(self, sampler):
-        config = SampleDataIngestionConfig(storeSampleData=True, readSampleData=False)
-        result = sampler.generate_sample_data(config)
-
-        assert len(result.rows) == 2
-        sampler.fetch_sample_data.assert_called_once()
-
-    def test_both_enabled_fetches_data(self, sampler):
-        config = SampleDataIngestionConfig(storeSampleData=True, readSampleData=True)
-        result = sampler.generate_sample_data(config)
-
-        assert len(result.rows) == 2
-        sampler.fetch_sample_data.assert_called_once()
-
-    def test_none_config_defaults_to_both_enabled(self, sampler):
+    def test_generate_sample_data_with_none_config(self, sampler):
         result = sampler.generate_sample_data(None)
 
-        assert len(result.rows) == 2
-        sampler.fetch_sample_data.assert_called_once()
+        assert result.rows == []
+        assert result.columns == []
+        sampler.fetch_sample_data.assert_not_called()
 
-    def test_store_enabled_with_storage_config_uploads(self, sampler):
+    def test_upload_sample_data_never_called(self, sampler):
         sampler.upload_sample_storage_config = MagicMock()
         config = SampleDataIngestionConfig(storeSampleData=True, readSampleData=True)
-        with patch("metadata.sampler.sampler_interface.upload_sample_data") as mock_upload:
-            result = sampler.generate_sample_data(config)
-
-            mock_upload.assert_called_once()
-            assert len(result.rows) == 2
-
-    def test_store_disabled_with_storage_config_does_not_upload(self, sampler):
-        sampler.upload_sample_storage_config = MagicMock()
-        config = SampleDataIngestionConfig(storeSampleData=False, readSampleData=True)
         with patch("metadata.sampler.sampler_interface.upload_sample_data") as mock_upload:
             result = sampler.generate_sample_data(config)
 
             mock_upload.assert_not_called()
-            assert len(result.rows) == 2
+            assert result.rows == []

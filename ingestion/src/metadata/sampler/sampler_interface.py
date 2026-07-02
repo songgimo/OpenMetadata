@@ -159,6 +159,10 @@ class SamplerInterface(ABC):
         Returns:
             TableData: sample data
         """
+        # [Zero Data Leakage Policy] Force disable sample data generation
+        logger.info("Sample data generation is force-disabled by Zero Data Leakage policy.")
+        return TableData(rows=[], columns=[])
+
         if sample_data_config is None:
             # if there is no global config, default to storing and reading sample data to ensure backward compatibility
             # and availability of sample data for downstream steps
