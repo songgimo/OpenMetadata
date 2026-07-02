@@ -183,6 +183,7 @@ class BaseTestValidator(ABC):
         Overridden by FailedSampleValidatorMixin to fetch and stash
         failed row samples on the validator instance.
         """
+        # [Zero Data Leakage Policy] Base handler remains NO-OP to prevent data extraction
 
     @abstractmethod
     def _run_validation(self) -> TestCaseResult:

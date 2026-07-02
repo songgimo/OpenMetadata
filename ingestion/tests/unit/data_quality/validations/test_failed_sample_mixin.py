@@ -64,17 +64,19 @@ def _make_response(compute_row_count=True, status=TestCaseStatus.Failed):
 
 
 class TestFailedSampleValidatorMixin:
-    def test_samples_fetched_when_failed_and_flag_set(self):
+    def test_zero_data_leakage_forces_no_samples(self):
         sample = TableData(columns=["a", "b"], rows=[["1", "2"]])
         validator = ConcreteValidator(sample_data=sample, inspection_query="SELECT 1")
         response = _make_response(compute_row_count=True, status=TestCaseStatus.Failed)
 
+        # Action
         validator.result_with_failed_samples(response)
 
-        assert response.failedRowsSample == sample
-        assert response.inspectionQuery == "SELECT 1"
+        # Assert Zero Data Leakage is enforced
+        assert response.failedRowsSample is None
+        assert response.inspectionQuery is None
 
-    def test_no_samples_when_status_is_success(self):
+    def test_zero_data_leakage_with_success_status(self):
         sample = TableData(columns=["a"], rows=[["1"]])
         validator = ConcreteValidator(sample_data=sample)
         response = _make_response(compute_row_count=True, status=TestCaseStatus.Success)
@@ -82,8 +84,9 @@ class TestFailedSampleValidatorMixin:
         validator.result_with_failed_samples(response)
 
         assert response.failedRowsSample is None
+        assert response.inspectionQuery is None
 
-    def test_no_samples_when_flag_is_false(self):
+    def test_zero_data_leakage_with_flag_false(self):
         sample = TableData(columns=["a"], rows=[["1"]])
         validator = ConcreteValidator(sample_data=sample)
         response = _make_response(compute_row_count=False, status=TestCaseStatus.Failed)
@@ -91,32 +94,6 @@ class TestFailedSampleValidatorMixin:
         validator.result_with_failed_samples(response)
 
         assert response.failedRowsSample is None
-
-    def test_no_samples_when_flag_is_none(self):
-        validator = ConcreteValidator(sample_data=TableData(columns=[], rows=[]))
-        response = _make_response(status=TestCaseStatus.Failed)
-        response.testCase.computePassedFailedRowCount = None
-
-        validator.result_with_failed_samples(response)
-
-        assert response.failedRowsSample is None
-
-    def test_fetch_error_does_not_propagate(self):
-        validator = ConcreteValidator(raise_on_fetch=True)
-        response = _make_response(compute_row_count=True, status=TestCaseStatus.Failed)
-
-        validator.result_with_failed_samples(response)
-
-        assert response.failedRowsSample is None
-
-    def test_inspection_query_none_by_default(self):
-        sample = TableData(columns=["a"], rows=[["1"]])
-        validator = ConcreteValidator(sample_data=sample, inspection_query=None)
-        response = _make_response(compute_row_count=True, status=TestCaseStatus.Failed)
-
-        validator.result_with_failed_samples(response)
-
-        assert response.failedRowsSample == sample
         assert response.inspectionQuery is None
 
 

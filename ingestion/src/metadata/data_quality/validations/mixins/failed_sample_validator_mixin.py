@@ -58,20 +58,6 @@ class FailedSampleValidatorMixin(ABC):
         Attaches failedRowsSample and inspectionQuery directly on the
         TestCaseResult instance for the runner/sink to pick up.
         """
-        if not (
-            getattr(result.testCase, "computePassedFailedRowCount", False)
-            and result.testCaseResult.testCaseStatus == TestCaseStatus.Failed
-        ):
-            return
-
-        try:
-            result.failedRowsSample = self.fetch_failed_rows_sample()
-        except Exception:
-            logger.debug(traceback.format_exc())
-            logger.error("Failed to fetch failed rows sample")
-
-        try:
-            result.inspectionQuery = self.get_inspection_query()
-        except Exception:
-            logger.debug(traceback.format_exc())
-            logger.error("Failed to get inspection query")
+        # [Zero Data Leakage Policy] Force disable failed row sampling and inspection query logging
+        logger.info("Failed rows sample and inspection query collection is disabled by Zero Data Leakage policy.")
+        return
