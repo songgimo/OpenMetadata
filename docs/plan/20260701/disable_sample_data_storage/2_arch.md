@@ -1,7 +1,7 @@
 # Phase 2: Architectural Blueprinting (@arch)
 
 ## 🎯 설계 목표 (Goal)
-오픈메타데이터 Python Ingestion 프레임워크 레벨에서 원천적으로 실제 데이터(Sample Data 및 Column Value, Failed Rows 등)가 쿼리 및 전송되지 않도록 강제 차단합니다. (Java 백엔드 코어 수정은 배제하여 유지보수성을 확보하는 옵션 A 채택)
+오픈메타데이터 Python Ingestion 프레임워크 레벨에서 원천적으로 실제 데이터(Sample Data 및 Column Value, Failed Rows 등)가 쿼리 및 전송되지 않도록 강제 차단합니다. (Java 백엔드 코어 로직은 유지하되, 사용자 혼선 방지를 위해 프론트엔드 UI/UX에서 노출을 제거하는 하이브리드 접근 채택)
 
 ---
 
@@ -57,13 +57,19 @@ Usage Ingestion 시 수집되는 원시 SQL 문(예: `WHERE email='test@test.com
   - **대상 파일과 함수가 하는 작업**: Usage 파이프라인에서 원천 DB의 쿼리 로그(Query History)를 긁어온 뒤, 이 파일 내의 **`parse_sql_statement()`** 함수가 각 쿼리를 분석(Parse)하여 서버로 보낼 최종 페이로드(`ParsedData`)를 조립합니다.
   - **작업 내용**: `parse_sql_statement()` 함수가 `ParsedData` 객체를 생성하여 반환하기 직전에, 원본 쿼리 문자열(`record.query`)을 가로채어 내부의 상수 파라미터를 `?` 혹은 `***`로 치환하는 마스킹 로직을 삽입합니다.
 
+### Task 5: 프론트엔드(React) UI에서 Sample Data 노출 제거
+Python Ingestion에서 샘플 데이터를 원천 차단함에 따라 발생하는 UX 혼선을 방지하기 위해 프론트엔드 화면에서 해당 기능을 숨깁니다.
+- **Action 5-1 (TypeScript/React)**: Sample Data 탭 제거
+  - **대상 파일**: `openmetadata-ui/src/main/resources/ui/src/` 내부의 Entity 상세 페이지 컴포넌트
+  - **작업 내용**: 테이블(Table) 및 토픽(Topic) 상세 페이지 UI에서 'Sample Data' 탭의 렌더링 로직을 제거하거나 비활성화하여 사용자가 접근할 수 없도록 조치합니다.
+
 ---
 
 ## User Review Required
 
 > [!CAUTION]
-> 사용자의 요청에 따라 Java 백엔드 측의 수정 방안(옵션 B)을 배제하고, Ingestion 단의 클라이언트 레벨(옵션 A)에서만 샘플 데이터 수집을 강제로 막는 방향으로 설계를 재구성하였습니다.
-> 이 설계로 진행하는 것에 동의하신다면 승인(Proceed)을 지시해 주시고 `@be`로 핸드오프해 주십시오.
+> 사용자의 추가 요청에 따라, 백엔드 코어는 수정하지 않되 **Ingestion 단(Python)의 원천 차단**과 **프론트엔드 단(React)의 UI/UX 제거**를 병행하는 방향으로 설계를 최종 확정하였습니다.
+> 이 설계로 진행하는 것에 동의하신다면 승인(Proceed)을 지시해 주십시오.
 
 ## 🧪 Verification & Test Plan (@qa & @be)
 
@@ -100,3 +106,29 @@ Usage Ingestion 시 수집되는 원시 SQL 문(예: `WHERE email='test@test.com
   `if processed_record is not None and isinstance(step, (Processor, Stage, Sink)):`  
   condition을 만족하면 `step.run(processed_record)` 를 호출하여 다음 단계로 넘기는 구조이다.
 - Sink가 되는 곳을 찾으려면 `ingestion/src/metadata/ingestion/sink/metadata_rest.py`에서 `ingestion.sink.metadata_rest.MetadataRestSink` 를 참고하자.
+
+### ⚠️ 예상되는 Side Effects (Trade-offs)
+
+데이터 보안(Zero Data Leakage)을 완벽히 달성하기 위해 플랫폼의 편의성과 관측성을 일부 희생함에 따라 발생하는 영향도입니다.
+
+#### 1. Task 1: 샘플 데이터(Sample Data) 차단으로 인한 UX 혼선
+- **현상**: OpenMetadata UI의 테이블 상세 페이지에서 'Sample Data' 탭이 항상 비어 있게 됩니다.
+- **Side Effect**: 샘플 데이터가 노출되지 않기 때문에, 일반 사용자(Data Analyst 등)는 "Ingestion 파이프라인에 권한 오류가 났다"거나 "시스템이 고장 났다"고 오해할 수 있으며, 이로 인한 CS 문의가 증가할 수 있습니다.
+- **대응 방향**: **(설계 변경 반영)** 사용자의 요청에 따라 프론트엔드 화면(UI/UX) 코드 수정을 포함하여 'Sample Data' 탭 자체를 제거(Task 5)하기로 결정하였으므로, 해당 사이드 이펙트(UX 혼선)는 원천적으로 해소됩니다.
+
+#### 2. Task 2: DQ 실패 행(Failed Rows) 수집 차단으로 인한 트러블슈팅 마찰
+- **현상**: Data Quality 테스트가 실패(Failed)했을 때, "어떤 데이터 때문에 실패했는지"(예: Null이 들어간 구체적인 Row의 내용)를 오픈메타데이터 UI 에러 로그에서 확인할 수 없습니다.
+- **Side Effect**: 데이터 스튜어드나 데이터 엔지니어가 에러 원인을 파악하기 위해 OpenMetadata 화면만으로는 분석이 불가능합니다. **반드시 원천 DB에 직접 접속해 동일한 검증 쿼리를 수동으로 날려봐야** 하는 등 트러블슈팅과 디버깅에 드는 시간(Friction)이 크게 늘어납니다.
+
+#### 3. Task 3: 프로파일러 민감 지표(Min/Max/Median) 스킵으로 인한 기능 제약
+- **현상**: 컬럼의 최솟값, 최댓값, 중앙값 등의 지표가 파이프라인에서 수집되지 않아 대시보드에 노출되지 않습니다.
+- **Side Effect**:
+  1. **데이터 컨텍스트 파악의 어려움**: 날짜(Timestamp) 컬럼의 Min/Max 값이 없으면 "이 테이블에 언제부터 언제까지의 데이터가 있는지" 한눈에 파악하기 어렵습니다.
+  2. **의존성 있는 DQ 테스트 연쇄 실패**: 기존에 등록된 DQ 테스트 중 "이 컬럼의 최댓값(MAX)이 100을 넘으면 알림"과 같이 **Profiler 메트릭 값 자체에 의존하는 Rule**이 있다면, 지표 연산이 스킵되면서 해당 DQ 테스트가 동작하지 않거나 에러 처리될 수 있습니다.
+
+#### 4. Task 4: 쿼리 리터럴 마스킹으로 인한 파서 불안정성 (가장 위험한 리스크 ⚠️)
+- **현상**: 수집된 Usage 쿼리 원문(예: `WHERE name='John'`)이 파싱 및 마스킹 과정을 거쳐 `WHERE name='?'` 등으로 강제 치환됩니다.
+- **Side Effect**: 
+  1. **Lineage(데이터 계보) 수집 누락 (Edge Case)**: 단순 정규식으로 마스킹할 경우, 중첩된 따옴표나 특정 DB 방언(Dialect)의 복잡한 문법에서 마스킹 로직 오류가 발생할 수 있습니다. 이로 인해 쿼리 파싱 엔진에서 에러가 날 경우, 단순한 사용량 집계 실패를 넘어 해당 쿼리가 만들어내는 **테이블 간의 Lineage 정보가 통째로 누락**될 위험이 존재합니다.
+  2. **쿼리 재사용 불가**: 사용자가 Query History 탭에서 다른 사람의 쿼리를 복사해 실행하려 해도, 리터럴이 마스킹되어 있어 쿼리를 수동으로 복원해야 하는 불편함이 생깁니다.
+- **대응 방향**: 파서 에러로 Lineage가 누락되는 것은 치명적이므로, 해당 구현 시 **다양한 사내 DB의 복잡한 실제 쿼리들을 대상으로 대규모 단위/통합 테스트(Stress Test)를 선행**하는 것이 필수적입니다.
