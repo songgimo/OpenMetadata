@@ -1,11 +1,12 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from metadata.sampler.processor import SamplerProcessor
 
-
 class TestSamplerProcessorOverride:
-    def test_zero_data_leakage_config_override(self):
+    @patch("metadata.sampler.processor.adapter_for_pipeline")
+    @patch("metadata.sampler.processor.import_sampler_class")
+    def test_zero_data_leakage_config_override(self, mock_import_sampler_class, mock_adapter_for_pipeline):
         # Create mock config
         mock_workflow_config = MagicMock()
         mock_workflow_config.source.type = "mysql"
@@ -21,6 +22,13 @@ class TestSamplerProcessorOverride:
 
         # Create mock profiler config class
         mock_profiler_config_class = MagicMock()
+
+        mock_adapter = MagicMock()
+        mock_adapter.service_type = MagicMock()
+        mock_adapter.service_type.name = "DatabaseService"
+        mock_adapter_for_pipeline.return_value = mock_adapter
+
+        mock_import_sampler_class.return_value = MagicMock()
 
         # Initialize the processor
         processor = SamplerProcessor(
