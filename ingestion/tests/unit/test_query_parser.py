@@ -649,3 +649,26 @@ END $$"""
         self.assertEqual(parser.source_tables, [])
         self.assertEqual(parser.target_tables, [])
         self.assertEqual(parser.column_lineage, [])
+
+def test_query_parser_redaction():
+    # Test that the raw query text is redacted in ParsedData
+    from metadata.ingestion.processor.query_parser import parse_sql_statement
+    from metadata.generated.schema.type.tableQuery import TableQuery
+    from metadata.ingestion.lineage.models import Dialect
+
+    mock_query = "SELECT * FROM users WHERE email='ceo@company.com'"
+
+    record = TableQuery(
+        query=mock_query,
+        analysisDate=1690000000000,
+        databaseName="test_db",
+        databaseSchema="test_schema",
+        serviceName="test_service",
+        userName="admin"
+    )
+
+    parsed_data = parse_sql_statement(record, Dialect.MYSQL)
+
+    assert parsed_data is not None
+    assert "ceo@company.com" not in parsed_data.sql
+    assert "REDACTED FOR ZERO DATA LEAKAGE" in parsed_data.sql

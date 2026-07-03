@@ -184,7 +184,7 @@ class TestCaseRunner(Processor):
                             list(test_case_to_create.parameterValues) if test_case_to_create.parameterValues else None
                         ),
                         owners=None,
-                        computePassedFailedRowCount=test_case_to_create.computePassedFailedRowCount,
+                        computePassedFailedRowCount=False,  # [Zero Data Leakage Policy] Force disable
                     )
                 )
                 test_cases.append(test_case)
@@ -229,7 +229,7 @@ class TestCaseRunner(Processor):
                         column_name=test_case_definition.columnName,
                     ),
                     test_case_parameter_values=test_case_definition.parameterValues,
-                    compute_passed_failed_row_count=test_case_definition.computePassedFailedRowCount,
+                    compute_passed_failed_row_count=False,  # [Zero Data Leakage Policy] Force disable
                 )
                 if updated_test_case:
                     test_cases.pop(indx)
